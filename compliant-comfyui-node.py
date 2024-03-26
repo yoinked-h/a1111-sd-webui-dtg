@@ -1,14 +1,15 @@
-import gradio_client, pandas as pd, requests, io, random
+import gradio_client, requests, random
 CL = gradio_client.Client("KBlueLeaf/DTG-demo")
 from pathlib import Path
-# todo, make this better
-if Path(".tags.csv").exists():
-    csv = Path(".tags.csv").read_text()
-else:
-    csv = requests.get("https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/selected_tags.csv").text
-    Path(".tags.csv").write_text(csv)
-
-TAGS = pd.read_csv(io.StringIO(csv))
+if Path(".artists.txt").exists() == False:
+    Path(".artists.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/meta.txt").text)
+if Path(".characters.txt").exists() == False:
+    Path(".characters.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/char.txt").text)
+if Path(".copyrights.txt").exists() == False:
+    Path(".copyrights.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/copyright.txt").text)
+ARTISTS = Path(".artists.txt").read_text().split("\n")
+CHARS = Path(".characters.txt").read_text().split("\n")
+COPYR = Path(".copyrights.txt").read_text().split("\n")
 class DanTagGen:
     def __init__(self):
         pass
@@ -39,7 +40,8 @@ class DanTagGen:
                 "escape_bracket": (["enable", "disable"], {"default": "enable"}),
                 "model": (["alpha", "beta"], {"default": "beta"}),
                 "rating": (["safe", "sensitive", "nsfw", "nsfw, explicit"], {"default": "safe"}),
-                "regenerate": (["enable", "disable", "plap"], {"default": "enable"})
+                "regenerate": (["enable", "disable", "plap"], {"default": "enable"}),
+                "shuffle": (["enable", "disable"], {"default": "enable"})
             }
         }
 
@@ -48,8 +50,8 @@ class DanTagGen:
     FUNCTION = "predict"
 
     CATEGORY = "DTG"
-    def predict(self, prompt, blacklist, length, width, height, temp, escape_bracket, model, rating, regenerate):
-        artists, characters, general = "", "", ""
+    def predict(self, prompt, blacklist, length, width, height, temp, escape_bracket, model, rating, regenerate, shuffle):
+        artists, characters, general, copyrights = "", "", "", ""
         if "," in prompt:
             prmpt = prompt.replace(", ", ",")
             prmpt = prmpt.replace(" ", "_")
@@ -57,31 +59,38 @@ class DanTagGen:
         else:
             prmpt = prompt.replace("-", "_")
         for tag in prmpt.split(" "):
-            if TAGS["name"].str.contains(tag).any():
-                category = TAGS["category"][TAGS["name"] == tag].values
-                if category.shape[0] != 0:
-                    category = category[0]
-                if str(category) == "0":
-                    general += " " + tag
-                elif str(category) == "4":
-                    characters += " " + tag
-                elif str(category) == "9":
-                    artists += " " + tag
+            if tag in ARTISTS:
+                artists += tag + " "
+            elif tag in CHARS:
+                characters += tag + " "
+            elif tag in COPYR:
+                copyrights += tag + " "
             else:
-                general += " " + tag 
-        general = general.strip(" _")
-        characters = characters.strip(" _")
-        artists = artists.strip(" _")
+                general += tag + " "
         specials = []
         for tag in general.split(" "):
             if tag in ['1girl', '2girls', '3girls', '4girls', '5girls', '6+girls', 'multiple_girls', '1boy', '2boys', '3boys', '4boys', '5boys', '6+boys', 'multiple_boys', 'male_focus', '1other', '2others', '3others', '4others', '5others', '6+others', 'multiple_others']:
                 specials.append(tag)
+        if shuffle == "enable":
+            random.shuffle(specials)
+            lartists = artists.split(" ")
+            random.shuffle(lartists)
+            artists = " ".join(lartists)
+            lcharacters = characters.split(" ")
+            random.shuffle(lcharacters)
+            characters = " ".join(lcharacters)
+            lgeneral = general.split(" ")
+            random.shuffle(lgeneral)
+            general = " ".join(lgeneral)
+            lcopyrights = copyrights.split(" ")
+            random.shuffle(lcopyrights)
+            copyrights = " ".join(lcopyrights)
         result = CL.predict(
             "KBlueLeaf/DanTagGen-" + model,
             rating,
             artists,
             characters,
-            '',
+            copyrights,
             length,
             specials,
             prmpt,
@@ -97,9 +106,9 @@ class DanTagGen:
         return (result,)
     
     @classmethod
-    def IS_CHANGED(self, prompt, blacklist, length, width, height, temp, escape_bracket, model, rating, regenerate):
+    def IS_CHANGED(self, prompt, blacklist, length, width, height, temp, escape_bracket, model, rating, regenerate, shuffle):
         if regenerate == "plap":
-            return random.randint(1, 200) * regenerate
+            return random.randint(1, 200) * regenerate # lol
         return random.randint(1, 2675376) * bool(regenerate) 
 
 # NOTE: names should be globally unique
