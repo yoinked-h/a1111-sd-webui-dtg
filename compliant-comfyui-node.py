@@ -7,6 +7,8 @@ if Path(".characters.txt").exists() == False:
     Path(".characters.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/char.txt").text)
 if Path(".copyrights.txt").exists() == False:
     Path(".copyrights.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/copyright.txt").text)
+if Path(".meta.txt").exists() == False:
+    Path(".meta.txt").write_text(requests.get("https://github.com/KohakuBlueleaf/z-a1111-sd-webui-dtg/raw/main/tag-list/meta.txt").text)
 ARTISTS = Path(".artists.txt").read_text().split("\n")
 CHARS = Path(".characters.txt").read_text().split("\n")
 COPYR = Path(".copyrights.txt").read_text().split("\n")
@@ -52,39 +54,44 @@ class DanTagGen:
     CATEGORY = "DTG"
     def predict(self, prompt, blacklist, length, width, height, temp, escape_bracket, model, rating, regenerate, shuffle):
         artists, characters, general, copyrights = "", "", "", ""
-        if "," in prompt:
-            prmpt = prompt.replace(", ", ",")
-            prmpt = prmpt.replace(" ", "_")
-            prmpt = prmpt.replace(",", " ")
-        else:
+        meta = ""
+        if "," not in prompt:
             prmpt = prompt.replace("-", "_")
-        for tag in prmpt.split(" "):
+            prmpt = prmpt.replace(" ", ", ")
+            prmpt = prmpt.replace("_", " ")
+        else:
+            prmpt = prompt
+        for tag in prmpt.split(", "):
             if tag in ARTISTS:
-                artists += tag + " "
+                artists += tag + ", "
             elif tag in CHARS:
-                characters += tag + " "
+                characters += tag + ", "
             elif tag in COPYR:
-                copyrights += tag + " "
+                copyrights += tag + ", "
             else:
-                general += tag + " "
+                general += tag + ", "
         specials = []
-        for tag in general.split(" "):
-            if tag in ['1girl', '2girls', '3girls', '4girls', '5girls', '6+girls', 'multiple_girls', '1boy', '2boys', '3boys', '4boys', '5boys', '6+boys', 'multiple_boys', 'male_focus', '1other', '2others', '3others', '4others', '5others', '6+others', 'multiple_others']:
+        for tag in general.split(", "):
+            if tag in ['1girl', '2girls', '3girls', '4girls', '5girls', '6+girls', 'multiple girls', '1boy', '2boys', '3boys', '4boys', '5boys', '6+boys', 'multiple boys', 'male focus', '1other', '2others', '3others', '4others', '5others', '6+others', 'multiple others']:
                 specials.append(tag)
+        lartists = artists.split(", ")
+        lartists.pop(lartists.index(""))
+        lgeneral = general.split(", ")
+        lgeneral.pop(lgeneral.index(""))
+        lcopyrights = copyrights.split(", ")
+        lcopyrights.pop(lcopyrights.index(""))
+        lcharacters = characters.split(", ")
+        lcharacters.pop(lcharacters.index(""))
         if shuffle == "enable":
             random.shuffle(specials)
-            lartists = artists.split(" ")
             random.shuffle(lartists)
-            artists = " ".join(lartists)
-            lcharacters = characters.split(" ")
             random.shuffle(lcharacters)
-            characters = " ".join(lcharacters)
-            lgeneral = general.split(" ")
             random.shuffle(lgeneral)
-            general = " ".join(lgeneral)
-            lcopyrights = copyrights.split(" ")
             random.shuffle(lcopyrights)
-            copyrights = " ".join(lcopyrights)
+        characters = ", ".join(lcharacters)
+        general = ", ".join(lgeneral)
+        copyrights = ", ".join(lcopyrights)
+        artists = ", ".join(lartists)
         result = CL.predict(
             "KBlueLeaf/DanTagGen-" + model,
             rating,
